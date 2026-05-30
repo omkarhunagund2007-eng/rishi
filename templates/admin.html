@@ -13,6 +13,71 @@
 </div>
 <!-- SECTION 1: QUESTION BANK MANAGER (CRUD) -->
 <div id="sectionQuestions" class="admin-section">
+    <!-- SUBJECT MANAGER -->
+    <div class="glass-card" style="margin-bottom: 2rem;">
+        <h3 style="margin-bottom: 1.25rem;">Subject Manager</h3>
+
+        <form action="{{ url_for('admin_add_subject') }}" method="POST" style="margin-bottom: 1.5rem;">
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="subject_name">Subject Name</label>
+                    <input type="text" id="subject_name" name="name" class="form-control" placeholder="Computer Awareness" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="subject_icon">Icon</label>
+                    <input type="text" id="subject_icon" name="icon" class="form-control" placeholder="💻" maxlength="16">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="subject_description">Short Description</label>
+                <textarea id="subject_description" name="description" rows="2" class="form-control" placeholder="Topics covered in this subject."></textarea>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end;">
+                <button type="submit" class="btn btn-primary">Add Subject</button>
+            </div>
+        </form>
+
+        {% if subjects %}
+            <div class="table-responsive">
+                <table class="history-table">
+                    <thead>
+                        <tr>
+                            <th>Subject</th>
+                            <th>Description</th>
+                            <th>Questions</th>
+                            <th style="text-align: right;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for subject in subjects %}
+                            <tr>
+                                <td>
+                                    <span class="subject-badge badge-neutral">{{ subject.icon }} {{ subject.name }}</span>
+                                </td>
+                                <td>{{ subject.description }}</td>
+                                <td>{{ subject.question_count }}</td>
+                                <td style="text-align: right;">
+                                    <form action="{{ url_for('admin_delete_subject', subject_id=subject.id) }}" method="POST" style="display: inline;" onsubmit="return confirm('Remove this subject from future tests? Existing questions and reports will be preserved.');">
+                                        <button type="submit" class="btn btn-secondary" style="padding: 0.35rem 0.7rem; font-size: 0.75rem; border-color: rgba(239, 68, 68, 0.4); color: var(--danger); background: none;">
+                                            Remove
+                                        </button>
+                                    </form>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <p style="text-align: center; color: var(--text-muted); padding: 1rem 0;">
+                No subjects exist yet. Add a subject before adding questions.
+            </p>
+        {% endif %}
+    </div>
+
     <!-- ADD NEW QUESTION FORM -->
     <div class="glass-card" style="margin-bottom: 2rem;">
         <h3 style="margin-bottom: 1.25rem;">🆕 Seed New Question into Bank</h3>
@@ -22,10 +87,9 @@
                 <div class="form-group">
                     <label for="q_subject">Subject Category</label>
                     <select id="q_subject" name="subject" class="form-control" style="background-color: var(--bg-main);" required>
-                        <option value="Quantitative Aptitude">Quantitative Aptitude</option>
-                        <option value="Reasoning">Logical Reasoning</option>
-                        <option value="English">English Language</option>
-                        <option value="General Knowledge">General Knowledge</option>
+                        {% for subject in subjects %}
+                            <option value="{{ subject.name }}">{{ subject.name }}</option>
+                        {% endfor %}
                     </select>
                 </div>
                 
@@ -106,7 +170,7 @@
                             <tr>
                                 <td>#{{ q.id }}</td>
                                 <td>
-                                    <span class="subject-badge badge-{{ q.subject.split()[-1].lower() if 'Knowledge' not in q.subject else 'gk' }}">
+                                    <span class="subject-badge badge-neutral">
                                         {{ q.subject }}
                                     </span>
                                 </td>
@@ -191,7 +255,7 @@
                                 <td><strong>{{ att.username }}</strong></td>
                                 <td>{{ att.date_taken }}</td>
                                 <td>
-                                    <span class="subject-badge badge-{{ att.subject.split()[-1].lower() if 'Knowledge' not in att.subject else 'gk' }}">
+                                    <span class="subject-badge badge-neutral">
                                         {{ att.subject }}
                                     </span>
                                 </td>

@@ -19,6 +19,16 @@ class User(db.Model):
     attempts = db.relationship("QuizAttempt", back_populates="user", cascade="all, delete-orphan")
 
 
+class Subject(db.Model):
+    __tablename__ = "subjects"
+
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(80), unique=True, nullable=False, index=True)
+    description = db.Column(db.Text, nullable=True)
+    icon = db.Column(db.String(16), nullable=False, default="📚")
+    created_at = db.Column(db.DateTime, nullable=False, default=lambda: datetime.now(timezone.utc))
+
+
 class Question(db.Model):
     __tablename__ = "questions"
 

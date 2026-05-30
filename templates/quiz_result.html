@@ -60,7 +60,7 @@
             <div class="review-header">
                 <div>
                     <span>Question #{{ loop.index }}</span>
-                    <span style="margin-left: 0.5rem;" class="subject-badge badge-{{ qa.subject.split()[-1].lower() if 'Knowledge' not in qa.subject else 'gk' }}">
+                    <span style="margin-left: 0.5rem;" class="subject-badge badge-neutral">
                         {{ qa.subject }}
                     </span>
                 </div>
@@ -135,4 +135,3 @@
     {% endfor %}
 </div>
 {% endblock %}
-

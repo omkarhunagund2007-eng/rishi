@@ -18,14 +18,30 @@ from flask import (
 )
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from schema import AttemptAnswer, Question, QuizAttempt, User, db
+from schema import AttemptAnswer, Question, QuizAttempt, Subject, User, db
 
 
-SUBJECTS = [
-    "Quantitative Aptitude",
-    "Reasoning",
-    "English",
-    "General Knowledge",
+DEFAULT_SUBJECTS = [
+    {
+        "name": "Quantitative Aptitude",
+        "description": "Arithmetic, percentages, speed, ratios, and data interpretation.",
+        "icon": "📊",
+    },
+    {
+        "name": "Reasoning",
+        "description": "Sequences, patterns, coding-decoding, and logical deductions.",
+        "icon": "🧠",
+    },
+    {
+        "name": "English",
+        "description": "Grammar, vocabulary, spelling, and sentence usage.",
+        "icon": "📝",
+    },
+    {
+        "name": "General Knowledge",
+        "description": "Civics, history, science, current affairs, and public institutions.",
+        "icon": "🌍",
+    },
 ]
 
 
@@ -85,10 +101,31 @@ def seed_database():
             )
         )
 
+    seed_subjects()
+
     if Question.query.count() == 0:
         db.session.add_all(Question(**item) for item in seed_questions())
 
     db.session.commit()
+
+
+def seed_subjects():
+    existing_names = {subject.name for subject in Subject.query.all()}
+
+    for item in DEFAULT_SUBJECTS:
+        if item["name"] not in existing_names:
+            db.session.add(Subject(**item))
+            existing_names.add(item["name"])
+
+    for subject_name, in Question.query.with_entities(Question.subject).distinct():
+        if subject_name and subject_name not in existing_names:
+            db.session.add(
+                Subject(
+                    name=subject_name,
+                    description=f"Practice questions for {subject_name}.",
+                )
+            )
+            existing_names.add(subject_name)
 
 
 def seed_questions():
@@ -310,18 +347,32 @@ def register_routes(app):
     @app.route("/quiz")
     @login_required
     def quiz_select():
-        return render_template("quiz_select.html", active_page="quiz_select")
+        subjects = subjects_with_question_counts()
+        return render_template(
+            "quiz_select.html",
+            active_page="quiz_select",
+            subjects=subjects,
+            total_questions=sum(subject["question_count"] for subject in subjects),
+        )
 
     @app.route("/quiz/start", methods=["POST"])
     @login_required
     def quiz_start():
-        subject = request.form.get("subject", SUBJECTS[0])
+        subjects = Subject.query.order_by(Subject.name.asc()).all()
+        subject_names = {subject.name for subject in subjects}
+        default_subject = subjects[0].name if subjects else "Mock Test"
+        subject = request.form.get("subject", default_subject)
         count = clamp_int(request.form.get("num_questions"), 5, 1, 50)
         duration_minutes = clamp_int(request.form.get("duration"), 5, 1, 180)
 
         query = Question.query
         if subject != "Full-Length Mock":
+            if subject not in subject_names:
+                flash("That subject is no longer available.", "error")
+                return redirect(url_for("quiz_select"))
             query = query.filter_by(subject=subject)
+        else:
+            query = query.filter(Question.subject.in_(subject_names))
 
         questions = query.all()
         if not questions:
@@ -420,17 +471,58 @@ def register_routes(app):
         return render_template(
             "admin.html",
             active_page="admin",
+            subjects=subjects_with_question_counts(),
             questions=Question.query.order_by(Question.id.desc()).all(),
             users=User.query.order_by(User.created_at.desc()).all(),
             all_attempts=QuizAttempt.query.order_by(QuizAttempt.date_taken.desc()).all(),
         )
 
+    @app.route("/admin/subjects/add", methods=["POST"])
+    @login_required
+    @admin_required
+    def admin_add_subject():
+        name = request.form.get("name", "").strip()
+        description = request.form.get("description", "").strip()
+        icon = request.form.get("icon", "").strip() or "📚"
+
+        if not name:
+            flash("Please enter a subject name.", "error")
+            return redirect(url_for("admin"))
+
+        if Subject.query.filter_by(name=name).first():
+            flash("That subject already exists.", "error")
+            return redirect(url_for("admin"))
+
+        db.session.add(Subject(name=name, description=description, icon=icon[:16]))
+        db.session.commit()
+        flash("Subject added. You can now add questions under it.", "success")
+        return redirect(url_for("admin"))
+
+    @app.route("/admin/subjects/<int:subject_id>/delete", methods=["POST"])
+    @login_required
+    @admin_required
+    def admin_delete_subject(subject_id):
+        subject = db.session.get(Subject, subject_id)
+        if not subject:
+            flash("Subject not found.", "error")
+            return redirect(url_for("admin"))
+
+        db.session.delete(subject)
+        db.session.commit()
+        flash("Subject removed from future tests. Existing questions and reports are preserved.", "success")
+        return redirect(url_for("admin"))
+
     @app.route("/admin/questions/add", methods=["POST"])
     @login_required
     @admin_required
     def admin_add_question():
+        subject_name = request.form.get("subject", "").strip()
+        if not Subject.query.filter_by(name=subject_name).first():
+            flash("Please choose an existing subject before adding a question.", "error")
+            return redirect(url_for("admin"))
+
         question = Question(
-            subject=request.form.get("subject", SUBJECTS[0]),
+            subject=subject_name,
             difficulty=request.form.get("difficulty", "Medium"),
             text=request.form.get("text", "").strip(),
             option_a=request.form.get("option_a", "").strip(),
@@ -539,6 +631,25 @@ def dashboard_stats(user_id):
         "accuracy_chart_url": url_for("accuracy_chart"),
         "trend_chart_url": url_for("trend_chart"),
     }
+
+
+def subjects_with_question_counts():
+    counts = dict(
+        Question.query.with_entities(Question.subject, db.func.count(Question.id))
+        .group_by(Question.subject)
+        .all()
+    )
+    subjects = Subject.query.order_by(Subject.name.asc()).all()
+    return [
+        {
+            "id": subject.id,
+            "name": subject.name,
+            "description": subject.description or f"Practice questions for {subject.name}.",
+            "icon": subject.icon or "📚",
+            "question_count": counts.get(subject.name, 0),
+        }
+        for subject in subjects
+    ]
 
 
 def clamp_int(value, default, minimum, maximum):

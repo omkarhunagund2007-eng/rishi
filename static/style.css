@@ -308,6 +308,7 @@ body {
 .badge-reasoning { background-color: rgba(157, 91, 226, 0.12); color: #7c3fc4; border: 1px solid rgba(157, 91, 226, 0.24); }
 .badge-english { background-color: rgba(17, 156, 116, 0.12); color: #0f8a67; border: 1px solid rgba(17, 156, 116, 0.24); }
 .badge-gk { background-color: rgba(201, 122, 5, 0.12); color: #a76404; border: 1px solid rgba(201, 122, 5, 0.24); }
+.badge-neutral { background-color: rgba(37, 115, 217, 0.1); color: var(--info); border: 1px solid rgba(37, 115, 217, 0.2); }
 /* Difficulty Badges */
 .diff-badge {
     padding: 0.15rem 0.5rem;
